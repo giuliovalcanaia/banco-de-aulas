@@ -158,7 +158,6 @@ export function SettingsPanel({
     setSaving(true)
     try {
       await onSave(form)
-      toast.success('Ajustes salvos.')
     } catch (error) {
       toast.error(errorMessage(error))
     } finally {
@@ -349,11 +348,10 @@ export function SettingsPanel({
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                   <AlertDialogAction
-                    className="bg-destructive text-white hover:bg-destructive/90"
+                    className="bg-destructive text-white hover:bg-destructive/90 dark:bg-red-600 dark:hover:bg-red-700"
                     onClick={async () => {
                       try {
                         await onReset()
-                        toast.success('Dados apagados.')
                       } catch (error) {
                         toast.error(errorMessage(error))
                       }
@@ -442,7 +440,6 @@ export function SettingsPanel({
                 if (pendingImport) {
                   try {
                     await onImport(pendingImport)
-                    toast.success('Backup importado.')
                   } catch (error) {
                     toast.error(errorMessage(error))
                   }

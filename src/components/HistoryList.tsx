@@ -198,7 +198,7 @@ export function HistoryList({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90 dark:bg-red-600 dark:hover:bg-red-700"
               onClick={async () => {
                 if (pendingDelete) await onDelete(pendingDelete)
                 setPendingDelete(null)
