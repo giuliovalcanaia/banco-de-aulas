@@ -10,10 +10,12 @@ service cloud.firestore {
         && request.time.toMillis() < request.auth.token.auth_time * 1000 + 2592000000;
     }
 
+    // Qualquer conta Google autenticada e verificada pode usar o app. O
+    // isolamento fica por conta do uid: cada usuário só acessa users/{uid}/...,
+    // garantido por isOwner().
     function isAuthorized() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email == 'giuliovalcanaia@gmail.com'
         && sessionValid();
     }
 

@@ -11,7 +11,7 @@ import {
   getDoc,
   setDoc,
 } from 'firebase/firestore'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, it } from 'vitest'
 
 const PROJECT_ID = 'banco-de-aulas-rules-test'
 const OWNER_UID = 'owner-uid'
@@ -79,10 +79,14 @@ describe('firestore.rules', () => {
     await assertSucceeds(getDoc(entryRef(db)))
   })
 
-  it('nega outro e-mail', async () => {
-    const db = context(OWNER_UID, 'outra@gmail.com')
+  it('permite outro e-mail verificado gravar apenas os próprios dados', async () => {
+    const otherEmail = 'professor@escola.com.br'
+    const otherDb = context(OTHER_UID, otherEmail)
+    const ownerRef = doc(otherDb, 'users', OTHER_UID, 'entries', '2026-11-05')
+    const foreignRef = entryRef(otherDb)
 
-    await assertFails(setDoc(entryRef(db), validEntry()))
+    await assertSucceeds(setDoc(ownerRef, validEntry()))
+    await assertFails(setDoc(foreignRef, validEntry()))
   })
 
   it('nega outro uid', async () => {
@@ -178,9 +182,5 @@ describe('firestore.rules', () => {
     const db = testEnv.unauthenticatedContext().firestore()
 
     await assertFails(getDoc(entryRef(db)))
-  })
-
-  it('mantém o resultado esperado para o e-mail autorizado', () => {
-    expect(EMAIL).toBe('giuliovalcanaia@gmail.com')
   })
 })

@@ -14,6 +14,8 @@ Projeto Firebase: **`banco-de-dados-7a088`** (“banco-de-horas”).
 Firestore: **`southamerica-east1`** (São Paulo), plano Spark.
 
 Não há mais Vercel Functions, Apps Script nem token de planilha no caminho do app.
+O código antigo (`api/`, `server/`, `vercel.json`, `tsconfig.server.json`) foi
+removido.
 
 ---
 
@@ -72,8 +74,8 @@ npm run build
 
 Arquivo: `firestore.rules`.
 
-- Só o e-mail `giuliovalcanaia@gmail.com`, verificado, acessa os dados.
-- Cada usuário só acessa `users/{uid}/...`.
+- Qualquer conta Google, verificada, com sessão válida acessa os dados.
+- Cada usuário só acessa `users/{uid}/...` (isolamento por `uid`).
 - O ID do documento de entrada é a data (`YYYY-MM-DD`).
 - Horários, observação e ajustes são validados.
 - `sessionValid()` exige `auth_time` com menos de 30 dias. Depois disso, leituras
@@ -114,10 +116,22 @@ Arquivo: `.github/workflows/firebase-deploy.yml`.
    - Gere uma chave JSON.
 2. No GitHub, em **Settings → Secrets and variables → Actions**, crie o secret:
    - `FIREBASE_SERVICE_ACCOUNT`: conteúdo do JSON.
-3. Faça push/merge na `main`.
+3. Ainda em **Settings → Secrets and variables → Actions → Variables**, crie uma
+   Variable para cada chave abaixo (os valores estão no seu `.env.production`
+   local):
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+4. Faça push/merge na `main`.
 
-As variáveis `VITE_FIREBASE_*` estão em `.env.production`, que é versionado. A
-configuração do Firebase é pública; não há segredo nela.
+O workflow injeta as `VITE_FIREBASE_*` no passo de build. O `.env.production`
+**não é versionado**; sem essas Variables, o bundle de produção sai sem
+configuração e o app publicado mostra “Firebase não configurado”. Como a
+configuração do Firebase Web é pública, usá-las como *Variables* (e não
+*Secrets*) é o suficiente.
 
 ### Deploy manual
 
@@ -200,7 +214,8 @@ da conta Google ou remova o usuário no Firebase Auth.
 ## 8. Checklist de validação
 
 - [ ] Login com `giuliovalcanaia@gmail.com`.
-- [ ] Outra conta Google recebe “Esta conta não tem acesso”.
+- [ ] Outra conta Google entra e vê seus próprios dados (zerados na primeira vez).
+- [ ] Confirmar que uma conta não enxerga os dados da outra.
 - [ ] Recarregar mantém a sessão.
 - [ ] Importar JSON antigo e conferir saldo.
 - [ ] Criar, editar, mover data e excluir lançamento.
@@ -216,17 +231,19 @@ da conta Google ou remova o usuário no Firebase Auth.
 
 ## 9. Descomissionamento do sistema antigo
 
-Depois de validar por alguns dias:
+Concluído no app:
 
-1. Remover `api/`, `server/`, `vercel.json`, `tsconfig.server.json`.
-2. Remover as dependências `google-auth-library`, `jose` e `@vercel/node`
-   (o cliente da planilha já foi removido).
+1. ~~Remover `api/`, `server/`, `vercel.json`, `tsconfig.server.json`.~~ Feito.
+2. ~~Remover as dependências `google-auth-library`, `jose` e `@vercel/node`.~~ Feito.
+   (o cliente da planilha já havia sido removido).
+
+Ainda pendente (ação manual de infraestrutura):
+
 3. Arquivar `google-apps-script/` (ou manter apenas como histórico).
 4. Arquivar/apagar o projeto na Vercel.
 5. Arquivar a implantação do Apps Script e revogar o token.
 6. Remover o OAuth Client antigo, se não for reutilizado.
 7. Manter a planilha antiga como backup somente leitura por algumas semanas.
-8. Atualizar este documento e o README.
 
 O PWA instalado na origem antiga (`vercel.app`) não migra sozinho. É preciso
 desinstalar e instalar de novo a partir de `https://banco-de-dados-7a088.web.app`.
@@ -237,9 +254,9 @@ desinstalar e instalar de novo a partir de `https://banco-de-dados-7a088.web.app
 
 | Sintoma | Causa provável |
 |---|---|
-| “Firebase não configurado” | `.env.local`/`.env.production` sem as variáveis `VITE_FIREBASE_*` |
+| “Firebase não configurado” | `.env.local` ausente (dev) ou Variables `VITE_FIREBASE_*` ausentes no GitHub Actions |
 | “Este domínio não está autorizado” | Domínio fora de Auth → Settings → Authorized domains |
-| “Esta conta não tem acesso” | E-mail diferente de `AUTHORIZED_EMAIL` / Rules |
+| “Esta conta não tem acesso” | Login Google falhou ou e-mail não verificado |
 | Login abre e fecha no iPhone | Popup bloqueado; o app cai para redirect em PWA standalone |
 | Dados não sincronizam | Offline ou regras negando; conferir console e `npm run test:rules` |
 | Sessão expira antes de 30 dias | Relógio do dispositivo adiantado ou `auth_time` antigo |

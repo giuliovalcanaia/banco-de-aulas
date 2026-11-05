@@ -11,7 +11,6 @@ import {
 import {
   authErrorCode,
   authErrorMessage,
-  isAuthorizedEmail,
   isSessionExpired,
 } from '@/lib/auth'
 import { clearLocalPersistence } from '@/lib/db'
@@ -76,15 +75,6 @@ export function useAuth() {
       if (!nextUser) {
         setUser(null)
         setStatus('signedOut')
-        return
-      }
-
-      if (!isAuthorizedEmail(nextUser.email)) {
-        await firebaseSignOut(auth)
-        if (!active) return
-        setUser(null)
-        setStatus('signedOut')
-        setMessage('Esta conta não tem acesso ao Banco de Aulas.')
         return
       }
 

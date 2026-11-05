@@ -13,6 +13,10 @@ dist-ssr
 *.local
 .env
 
+# Config de build (contém a config pública do Firebase; não é segredo, mas
+# fica fora do git para não fixar o projeto Firebase no repositório).
+.env.production
+
 # Firebase
 .firebase
 firebase-debug.log
