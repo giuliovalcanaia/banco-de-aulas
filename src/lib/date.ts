@@ -14,7 +14,17 @@ export function parseISODate(iso: string): Date {
 }
 
 export function isValidISODate(iso: string): boolean {
-  return DATE_PATTERN.test(iso) && !Number.isNaN(parseISODate(iso).getTime())
+  if (!DATE_PATTERN.test(iso)) return false
+
+  const [year, month, day] = iso.split('-').map(Number)
+  const date = parseISODate(iso)
+
+  return (
+    !Number.isNaN(date.getTime()) &&
+    date.getFullYear() === year &&
+    date.getMonth() + 1 === month &&
+    date.getDate() === day
+  )
 }
 
 export function formatDateShort(iso: string): string {
