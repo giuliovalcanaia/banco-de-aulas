@@ -232,7 +232,6 @@ export function DayForm({
         afternoon,
         note: note.trim(),
       })
-      toast.success(existing ? 'Dia atualizado.' : 'Dia salvo.')
       onFinishEdit?.(date)
     } catch (saveError) {
       toast.error(errorMessage(saveError))
@@ -372,11 +371,10 @@ export function DayForm({
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
                       <AlertDialogAction
-                        className="bg-destructive text-white hover:bg-destructive/90"
+                        className="bg-destructive text-white hover:bg-destructive/90 dark:bg-red-600 dark:hover:bg-red-700"
                         onClick={async () => {
                           try {
                             await onDelete(existing.id)
-                            toast.success('Lançamento removido.')
                             onFinishEdit?.(date)
                           } catch (deleteError) {
                             toast.error(errorMessage(deleteError))

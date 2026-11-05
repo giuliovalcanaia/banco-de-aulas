@@ -33,13 +33,11 @@ export default function App() {
   const { theme, toggle: toggleTheme } = useTheme()
 
   const syncLabel =
-    store.syncState === 'saving'
-      ? 'Salvando alterações...'
-      : store.syncState === 'offline'
-        ? 'Sem conexão — usando os dados salvos neste dispositivo.'
-        : store.syncState === 'error'
-          ? 'Falha na sincronização.'
-          : 'Tudo sincronizado.'
+    store.syncState === 'offline'
+      ? 'Sem conexão — usando os dados salvos neste dispositivo.'
+      : store.syncState === 'error'
+        ? 'Falha na sincronização.'
+        : 'Tudo sincronizado.'
 
   const handleTabChange = (value: string) => {
     if (!TABS.includes(value as TabValue)) return
@@ -58,7 +56,6 @@ export default function App() {
   const handleDelete = async (entry: DayEntry) => {
     try {
       await store.deleteEntry(entry.id)
-      toast.success('Lançamento excluído.')
     } catch (error) {
       toast.error(errorMessage(error))
     }
@@ -67,7 +64,6 @@ export default function App() {
   const handleExport = () => {
     if (!store.data) return
     exportData(store.data)
-    toast.success('Backup exportado.')
   }
 
   const handleImport = async (data: StoreData) => {
@@ -216,11 +212,6 @@ export default function App() {
               Sem conexão. As alterações serão enviadas quando a internet
               voltar.
             </span>
-          </div>
-        ) : store.syncState === 'saving' ? (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-            <div className="size-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
-            <span>Salvando alterações...</span>
           </div>
         ) : null}
 
