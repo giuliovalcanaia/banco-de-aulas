@@ -37,7 +37,10 @@ export function TimeSelect({
       <SelectTrigger
         id={id}
         aria-label={ariaLabel}
-        className={cn('w-[7.5rem]', className)}
+        className={cn(
+          'h-11 w-[7.5rem] text-base sm:h-8 sm:text-sm',
+          className,
+        )}
       >
         <SelectValue placeholder="--:--" />
       </SelectTrigger>
@@ -46,7 +49,7 @@ export function TimeSelect({
           <SelectGroup key={period.label}>
             <SelectLabel>{period.label}</SelectLabel>
             {period.times.map((time) => (
-              <SelectItem key={time} value={time}>
+              <SelectItem key={time} value={time} className="min-h-10 pl-2.5 sm:min-h-0">
                 {time}
               </SelectItem>
             ))}
@@ -55,7 +58,9 @@ export function TimeSelect({
         {hasCustomValue && (
           <SelectGroup>
             <SelectLabel>Outro</SelectLabel>
-            <SelectItem value={value}>{value}</SelectItem>
+            <SelectItem value={value} className="min-h-10 pl-2.5 sm:min-h-0">
+              {value}
+            </SelectItem>
           </SelectGroup>
         )}
       </SelectContent>

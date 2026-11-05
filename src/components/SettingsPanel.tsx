@@ -63,19 +63,23 @@ type RangeFieldsProps = {
 
 function RangeFields({ label, value, onChange }: RangeFieldsProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 text-sm font-medium">{label}</span>
-      <TimeSelect
-        value={value.start}
-        onChange={(start) => onChange({ ...value, start })}
-        ariaLabel={`${label}: início`}
-      />
-      <span className="text-sm text-muted-foreground">até</span>
-      <TimeSelect
-        value={value.end}
-        onChange={(end) => onChange({ ...value, end })}
-        ariaLabel={`${label}: fim`}
-      />
+    <div className="space-y-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:space-y-0">
+      <span className="text-sm font-medium sm:w-16">{label}</span>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+        <TimeSelect
+          value={value.start}
+          onChange={(start) => onChange({ ...value, start })}
+          ariaLabel={`${label}: início`}
+          className="w-full sm:w-[7.5rem]"
+        />
+        <span className="text-sm text-muted-foreground">até</span>
+        <TimeSelect
+          value={value.end}
+          onChange={(end) => onChange({ ...value, end })}
+          ariaLabel={`${label}: fim`}
+          className="w-full sm:w-[7.5rem]"
+        />
+      </div>
     </div>
   )
 }
@@ -225,7 +229,7 @@ export function SettingsPanel({
                     minutesPerAula: Number(event.target.value),
                   })
                 }
-                className="w-32"
+                className="h-11 w-full sm:h-8 sm:w-32"
               />
               <p className="text-xs text-muted-foreground">
                 Com 45 minutos, a jornada padrão de 7h30 (sem os lanches)
@@ -235,7 +239,7 @@ export function SettingsPanel({
 
             <div className="space-y-1.5">
               <Label>Dias úteis</Label>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="grid grid-cols-7 gap-1.5 sm:flex sm:flex-wrap">
                 {WEEKDAYS.map((day) => {
                   const selected = form.workdays.includes(day.value)
                   return (
@@ -246,7 +250,10 @@ export function SettingsPanel({
                       variant={selected ? 'default' : 'outline'}
                       aria-pressed={selected}
                       onClick={() => toggleWorkday(day.value)}
-                      className={cn(!selected && 'text-muted-foreground')}
+                      className={cn(
+                        'h-10 w-full px-0 text-xs sm:h-7 sm:w-auto sm:px-2.5 sm:text-[0.8rem]',
+                        !selected && 'text-muted-foreground',
+                      )}
                     >
                       {day.label}
                     </Button>
@@ -257,7 +264,12 @@ export function SettingsPanel({
           </div>
 
           <div className="flex justify-end">
-            <Button type="button" onClick={handleSave} disabled={saving}>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="h-11 w-full sm:h-8 sm:w-auto"
+            >
               {saving ? 'Salvando...' : 'Salvar ajustes'}
             </Button>
           </div>
@@ -276,8 +288,13 @@ export function SettingsPanel({
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={onExport}>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onExport}
+              className="h-11 w-full sm:h-8 sm:w-auto"
+            >
               <DownloadIcon />
               Exportar JSON
             </Button>
@@ -285,6 +302,7 @@ export function SettingsPanel({
               type="button"
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
+              className="h-11 w-full sm:h-8 sm:w-auto"
             >
               <UploadIcon />
               Importar JSON
@@ -300,7 +318,7 @@ export function SettingsPanel({
 
           <Separator />
 
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-medium">Apagar todos os dados</p>
               <p className="text-xs text-muted-foreground">
@@ -310,7 +328,12 @@ export function SettingsPanel({
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button type="button" variant="destructive" size="sm">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="h-11 w-full sm:h-7 sm:w-auto"
+                >
                   <Trash2Icon />
                   Apagar tudo
                 </Button>
@@ -359,12 +382,22 @@ export function SettingsPanel({
             {config.url}
           </p>
 
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={onRefresh}>
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onRefresh}
+              className="h-11 w-full sm:h-8 sm:w-auto"
+            >
               Recarregar dados
             </Button>
             {allowDisconnect && (
-              <Button type="button" variant="outline" onClick={onDisconnect}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onDisconnect}
+                className="h-11 w-full sm:h-8 sm:w-auto"
+              >
                 Desconectar
               </Button>
             )}

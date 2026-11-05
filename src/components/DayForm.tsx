@@ -69,6 +69,7 @@ function PeriodEditor({ label, value, fallback, onChange }: PeriodEditorProps) {
           type="button"
           variant="ghost"
           size="sm"
+          className="h-10 px-3 sm:h-7 sm:px-2.5"
           onClick={() => onChange(fallback)}
         >
           Adicionar
@@ -78,29 +79,35 @@ function PeriodEditor({ label, value, fallback, onChange }: PeriodEditorProps) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2.5">
-      <span className="w-14 text-sm font-medium">{label}</span>
-      <TimeSelect
-        value={value.start}
-        onChange={(start) => onChange({ ...value, start })}
-        ariaLabel={`${label}: início`}
-      />
-      <span className="text-sm text-muted-foreground">até</span>
-      <TimeSelect
-        value={value.end}
-        onChange={(end) => onChange({ ...value, end })}
-        ariaLabel={`${label}: fim`}
-      />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        className="ml-auto"
-        onClick={() => onChange(null)}
-        aria-label={`Remover ${label}`}
-      >
-        <XIcon />
-      </Button>
+    <div className="rounded-lg border px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium">{label}</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="size-9 sm:size-7"
+          onClick={() => onChange(null)}
+          aria-label={`Remover ${label}`}
+        >
+          <XIcon />
+        </Button>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
+        <TimeSelect
+          value={value.start}
+          onChange={(start) => onChange({ ...value, start })}
+          ariaLabel={`${label}: início`}
+          className="w-full sm:w-[7.5rem]"
+        />
+        <span className="text-sm text-muted-foreground">até</span>
+        <TimeSelect
+          value={value.end}
+          onChange={(end) => onChange({ ...value, end })}
+          ariaLabel={`${label}: fim`}
+          className="w-full sm:w-[7.5rem]"
+        />
+      </div>
     </div>
   )
 }
@@ -193,30 +200,6 @@ export function DayForm({
   const minutes = dayMinutes({ morning, afternoon })
   const delta = minutes - defaultDayMinutes(settings)
 
-  const applyDefault = () => {
-    setMorning(settings.defaultMorning)
-    setAfternoon(settings.defaultAfternoon)
-  }
-
-  const applyNoon = () => {
-    setMorning({
-      start: morning?.start ?? settings.defaultMorning.start,
-      end: '12:00',
-    })
-  }
-
-  const applyLate = () => {
-    setAfternoon({
-      start: afternoon?.start ?? settings.defaultAfternoon.start,
-      end: '17:45',
-    })
-  }
-
-  const applyDayOff = () => {
-    setMorning(null)
-    setAfternoon(null)
-  }
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
@@ -278,14 +261,15 @@ export function DayForm({
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 sm:grid-cols-[10rem_auto] sm:justify-start">
+            <div className="min-w-0 space-y-1.5">
               <Label htmlFor="day-date">Dia</Label>
               <DateField id="day-date" value={date} onChange={setDate} />
             </div>
             <Button
               type="button"
               variant="outline"
+              className="h-11 sm:h-8"
               onClick={() => {
                 const today = todayISO()
                 onCancelEdit?.(today)
@@ -294,15 +278,15 @@ export function DayForm({
             >
               Hoje
             </Button>
-            <span className="pb-2 text-sm capitalize text-muted-foreground">
-              {formatDateLong(date)}
-            </span>
           </div>
+          <p className="-mt-2 text-sm first-letter:uppercase text-muted-foreground">
+            {formatDateLong(date)}
+          </p>
 
           {editingEntryId && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
-              <PencilIcon className="size-4 text-primary" />
-              <span>
+            <div className="flex flex-wrap items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+              <PencilIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+              <span className="min-w-0 flex-1">
                 Editando o lançamento de{' '}
                 <strong className="font-medium">
                   {formatDateLong(editingEntry?.date ?? date)}
@@ -315,7 +299,7 @@ export function DayForm({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="ml-auto"
+                className="h-10 w-full justify-center sm:ml-auto sm:h-7 sm:w-auto"
                 onClick={() => onCancelEdit?.(date)}
               >
                 Cancelar edição
@@ -338,21 +322,6 @@ export function DayForm({
             />
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={applyDefault}>
-              Jornada padrão
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={applyNoon}>
-              Saída 12:00
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={applyLate}>
-              Saída 17:45
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={applyDayOff}>
-              Folga
-            </Button>
-          </div>
-
           <div className="space-y-1.5">
             <Label htmlFor="day-note">Observação (opcional)</Label>
             <Textarea
@@ -366,8 +335,8 @@ export function DayForm({
 
           <Separator />
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-sm text-muted-foreground">Saldo do dia:</span>
               <Badge variant="outline" className={cn('tabular-nums', deltaTone)}>
                 {formatSignedAulas(delta, settings.minutesPerAula)} aulas
@@ -377,11 +346,16 @@ export function DayForm({
               </span>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               {existing && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button type="button" variant="ghost" size="sm">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-11 w-full sm:h-7 sm:w-auto"
+                    >
                       <Trash2Icon />
                       Remover
                     </Button>
@@ -416,7 +390,11 @@ export function DayForm({
                 </AlertDialog>
               )}
 
-              <Button type="submit" disabled={saving}>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="h-11 w-full sm:h-8 sm:w-auto"
+              >
                 {saving
                   ? 'Salvando...'
                   : existing

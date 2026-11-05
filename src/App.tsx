@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import { GraduationCapIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { BalanceCounter } from '@/components/BalanceCounter'
+import { BalanceCounter, BalancePill } from '@/components/BalanceCounter'
 import { DayForm } from '@/components/DayForm'
 import { HistoryList } from '@/components/HistoryList'
+import { MobileNav, type TabValue } from '@/components/MobileNav'
 import { SettingsPanel } from '@/components/SettingsPanel'
 import { SetupScreen } from '@/components/SetupScreen'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
 import { useStore } from '@/hooks/useStore'
+import { useTheme } from '@/hooks/useTheme'
 import { totalDeltaMinutes } from '@/lib/balance'
 import { todayISO } from '@/lib/date'
 import { errorMessage } from '@/lib/errors'
@@ -26,14 +29,17 @@ import { clearCache, exportData } from '@/lib/storage'
 import type { DayEntry, StoreData } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
+const TABS: TabValue[] = ['hoje', 'historico', 'ajustes']
+
 export default function App() {
   const [config, setConfig] = useState<SheetsConfig | null>(() =>
     getSheetsConfig(),
   )
-  const [tab, setTab] = useState('hoje')
+  const [tab, setTab] = useState<TabValue>('hoje')
   const [selectedDate, setSelectedDate] = useState(todayISO())
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
   const store = useStore(config)
+  const { theme, toggle: toggleTheme } = useTheme()
 
   const handleConnect = (nextConfig: SheetsConfig) => {
     clearCache()
@@ -47,10 +53,18 @@ export default function App() {
     setConfig(null)
   }
 
+  const handleTabChange = (value: string) => {
+    if (!TABS.includes(value as TabValue)) return
+    setTab(value as TabValue)
+    if (value !== 'hoje') setEditingEntryId(null)
+    window.scrollTo({ top: 0 })
+  }
+
   const handleEdit = (entry: DayEntry) => {
     setSelectedDate(entry.date)
     setEditingEntryId(entry.id)
     setTab('hoje')
+    window.scrollTo({ top: 0 })
   }
 
   const handleDelete = async (entry: DayEntry) => {
@@ -80,14 +94,14 @@ export default function App() {
     return (
       <>
         <SetupScreen onConnect={handleConnect} />
-        <Toaster position="top-center" richColors />
+        <Toaster position="top-center" richColors theme={theme} />
       </>
     )
   }
 
   if (!store.data) {
     return (
-      <div className="flex min-h-svh items-center justify-center bg-background px-4">
+      <div className="flex min-h-dvh items-center justify-center bg-background px-4">
         <Card className="w-full max-w-md">
           <CardContent className="py-10 text-center">
             {store.loading || !store.error ? (
@@ -121,7 +135,7 @@ export default function App() {
             )}
           </CardContent>
         </Card>
-        <Toaster position="top-center" richColors />
+        <Toaster position="top-center" richColors theme={theme} />
       </div>
     )
   }
@@ -129,31 +143,39 @@ export default function App() {
   const totalMinutes = totalDeltaMinutes(store.data.entries, store.data.settings)
 
   return (
-    <div className="min-h-svh bg-background">
+    <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-2 sm:py-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <GraduationCapIcon className="size-5" />
             </div>
-            <div>
-              <h1 className="text-base font-semibold leading-tight">
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-semibold leading-tight">
                 Banco de Aulas
               </h1>
-              <p className="text-xs text-muted-foreground">
+              <p className="hidden truncate text-xs text-muted-foreground sm:block">
                 Saldo de horas em aulas
               </p>
             </div>
           </div>
 
-          <Badge variant="outline" className="hidden sm:inline-flex">
-            {store.data.entries.length}{' '}
-            {store.data.entries.length === 1 ? 'lançamento' : 'lançamentos'}
-          </Badge>
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <BalancePill
+              totalMinutes={totalMinutes}
+              settings={store.data.settings}
+              className="sm:hidden"
+            />
+            <Badge variant="outline" className="hidden sm:inline-flex">
+              {store.data.entries.length}{' '}
+              {store.data.entries.length === 1 ? 'lançamento' : 'lançamentos'}
+            </Badge>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-4 pb-40 pt-6">
+      <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 sm:pb-40 sm:pt-6">
         {(store.loading || store.error) && (
           <div
             className={cn(
@@ -181,17 +203,17 @@ export default function App() {
           </div>
         )}
 
-        <Tabs
-          value={tab}
-          onValueChange={(value) => {
-            setTab(value)
-            if (value !== 'hoje') setEditingEntryId(null)
-          }}
-        >
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="hoje">Hoje</TabsTrigger>
-            <TabsTrigger value="historico">Histórico</TabsTrigger>
-            <TabsTrigger value="ajustes">Ajustes</TabsTrigger>
+        <Tabs value={tab} onValueChange={handleTabChange}>
+          <TabsList className="hidden w-full grid-cols-3 sm:grid">
+            <TabsTrigger value="hoje" data-tab="hoje">
+              Hoje
+            </TabsTrigger>
+            <TabsTrigger value="historico" data-tab="historico">
+              Histórico
+            </TabsTrigger>
+            <TabsTrigger value="ajustes" data-tab="ajustes">
+              Ajustes
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="hoje" className="mt-4">
@@ -244,7 +266,9 @@ export default function App() {
         settings={store.data.settings}
       />
 
-      <Toaster position="top-center" richColors />
+      <MobileNav value={tab} onChange={handleTabChange} />
+
+      <Toaster position="top-center" richColors theme={theme} />
     </div>
   )
 }

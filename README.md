@@ -42,8 +42,8 @@ configuração.
 ## Como usar
 
 - **Hoje**: o formulário já vem preenchido com a jornada padrão. Altere só o
-  que divergiu, use os atalhos ("Saída 12:00", "Saída 17:45", "Folga") e salve.
-  O saldo do dia aparece antes de confirmar.
+  que divergiu (ou remova um período para marcar folga) e salve. A data pode ser
+  trocada pelo calendário ou pelo botão **Hoje**.
 - **Histórico**: mostra apenas os dias lançados, agrupados por mês, com o saldo
   de cada dia e o subtotal do mês. Dá para editar ou excluir cada lançamento.
   Ao editar pelo histórico, mudar a data **move** o lançamento para o novo dia
@@ -51,8 +51,24 @@ configuração.
 - **Ajustes**: muda a jornada padrão, a duração da aula e os dias úteis; exporta
   e importa backup em JSON; apaga todos os dados; recarrega ou desconecta a
   planilha.
-- **Contador flutuante**: fica no canto da tela com o saldo em aulas, o
-  equivalente em horas e a estimativa em dias de folga.
+- **Contador de saldo**: no celular aparece como uma pílula no cabeçalho; no
+  desktop fica no canto da tela com o saldo em aulas, o equivalente em horas e a
+  estimativa em dias de folga.
+- **Tema**: o botão de sol/lua no cabeçalho alterna entre claro e escuro. A
+  escolha fica salva no navegador (`localStorage`); na primeira visita o tema do
+  sistema é usado.
+
+### Instalar no celular (PWA)
+
+O app é um PWA e pode ser instalado na tela inicial:
+
+- **Android/Chrome**: menu ⋮ → **Instalar app** (ou o aviso de instalação).
+- **iPhone/Safari**: **Compartilhar** → **Adicionar à Tela de Início**.
+
+Depois de instalado, abre em tela cheia e sem a barra do navegador. O service
+worker guarda a interface para abrir offline, mas **salvar e editar continuam
+exigindo conexão** com a planilha. A instalação exige HTTPS (funciona em
+produção e em `localhost`).
 
 ## Onde os dados ficam
 
@@ -86,6 +102,7 @@ lançamento sem períodos e desconta 10 aulas.
 - Vite + React + TypeScript
 - Tailwind CSS v4
 - shadcn/ui (Radix)
+- PWA (manifest + service worker) com ícones gerados a partir do favicon
 - Google Apps Script + Google Sheets
 - Exportação/importação em JSON
 

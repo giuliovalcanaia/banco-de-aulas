@@ -99,8 +99,8 @@ export function HistoryList({
         return (
           <Card key={key}>
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-base capitalize">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-base first-letter:uppercase">
                   {formatMonth(key)}
                 </CardTitle>
                 <Badge variant="outline" className={cn('tabular-nums', toneBadge(subtotal))}>
@@ -117,23 +117,23 @@ export function HistoryList({
                   return (
                     <div
                       key={entry.id}
-                      className="flex flex-wrap items-center gap-3 px-4 py-3"
+                      className="flex flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3"
                     >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium capitalize">
+                      <div className="min-w-0 flex-1 basis-40">
+                        <p className="text-sm font-medium first-letter:uppercase">
                           {formatDateShort(entry.date)}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {periodsLabel(entry)}
                         </p>
                         {entry.note && (
-                          <p className="mt-1 text-xs italic text-muted-foreground">
+                          <p className="mt-1 line-clamp-2 text-xs italic text-muted-foreground">
                             {entry.note}
                           </p>
                         )}
                       </div>
 
-                      <div className="text-right">
+                      <div className="shrink-0 text-right">
                         <p
                           className={cn(
                             'text-sm font-semibold tabular-nums',
@@ -151,10 +151,11 @@ export function HistoryList({
                         </p>
                       </div>
 
-                      <div className="flex gap-1">
+                      <div className="ml-auto flex shrink-0 gap-1">
                         <Button
                           variant="ghost"
                           size="icon-sm"
+                          className="size-10 sm:size-7"
                           onClick={() => onEdit(entry)}
                           aria-label={`Editar ${entry.date}`}
                         >
@@ -163,6 +164,7 @@ export function HistoryList({
                         <Button
                           variant="ghost"
                           size="icon-sm"
+                          className="size-10 sm:size-7"
                           onClick={() => setPendingDelete(entry)}
                           aria-label={`Excluir ${entry.date}`}
                         >

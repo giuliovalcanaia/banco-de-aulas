@@ -27,14 +27,14 @@ export function DateField({ id, value, onChange }: DateFieldProps) {
   }
 
   return (
-    <div className="group relative w-40">
+    <div className="group relative w-full sm:w-40">
       <Input
         value={isoToBr(value)}
         readOnly
         tabIndex={-1}
         aria-hidden="true"
         placeholder="dd/mm/aaaa"
-        className="pointer-events-none w-40 pr-9 group-focus-within:border-ring group-focus-within:ring-3 group-focus-within:ring-ring/50"
+        className="pointer-events-none h-11 w-full pr-9 text-base group-focus-within:border-ring group-focus-within:ring-3 group-focus-within:ring-ring/50 sm:h-8 sm:text-sm"
       />
       <input
         id={id}
@@ -42,7 +42,7 @@ export function DateField({ id, value, onChange }: DateFieldProps) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onClick={(event) => openPicker(event.currentTarget)}
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        className="absolute inset-0 h-full w-full cursor-pointer text-base opacity-0"
       />
       <CalendarIcon className="pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2 text-muted-foreground" />
     </div>

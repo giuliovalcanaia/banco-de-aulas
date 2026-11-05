@@ -38,7 +38,7 @@ export function SetupScreen({ onConnect }: SetupScreenProps) {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background px-4 py-10">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4 py-6 sm:py-10">
       <Card className="w-full max-w-xl">
         <CardHeader>
           <CardTitle>Conectar à planilha</CardTitle>
@@ -74,6 +74,7 @@ export function SetupScreen({ onConnect }: SetupScreenProps) {
                 placeholder="https://script.google.com/macros/s/.../exec"
                 autoComplete="off"
                 spellCheck={false}
+                className="h-11 sm:h-8"
               />
             </div>
 
@@ -87,10 +88,11 @@ export function SetupScreen({ onConnect }: SetupScreenProps) {
                 placeholder="Token gerado no Apps Script"
                 autoComplete="off"
                 spellCheck={false}
+                className="h-11 sm:h-8"
               />
             </div>
 
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="h-11 w-full">
               Conectar
             </Button>
           </form>

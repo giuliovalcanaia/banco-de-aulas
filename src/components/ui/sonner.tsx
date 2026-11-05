@@ -7,10 +7,10 @@ import {
   TriangleAlertIcon,
 } from "lucide-react"
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const Toaster = ({ theme = 'system', ...props }: ToasterProps) => {
   return (
     <Sonner
-      theme="system"
+      theme={theme}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,
