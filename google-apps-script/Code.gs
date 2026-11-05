@@ -8,8 +8,10 @@
  * 4. Veja o token no registro de execução (Exibir > Registros).
  * 5. Implantar > Nova implantação > App da Web.
  *    Execute como: eu. Quem tem acesso: qualquer pessoa.
- * 6. Copie a URL terminada em /exec e o token para o app.
+ * 6. Copie a URL terminada em /exec e o token para as variáveis de ambiente
+ *    do servidor (Vercel). O token nunca deve ir para o navegador.
  *
+ * Para trocar o token, execute `rotateToken` e atualize SHEETS_TOKEN na Vercel.
  * O token fica nas Propriedades do Script, nunca neste arquivo.
  */
 
@@ -83,6 +85,21 @@ function setup() {
 
   Logger.log('Token da API: ' + token)
   Logger.log('Agora implante como App da Web e copie a URL terminada em /exec.')
+}
+
+/**
+ * Gera um novo token e invalida o anterior. Depois de rodar:
+ * 1. Copie o token exibido nos registros.
+ * 2. Atualize SHEETS_TOKEN na Vercel (e no .env.local).
+ * 3. Faça um novo deploy na Vercel para as functions lerem o valor novo.
+ */
+function rotateToken() {
+  var properties = PropertiesService.getScriptProperties()
+  var token = Utilities.getUuid().replace(/-/g, '')
+  properties.setProperty(TOKEN_PROPERTY, token)
+  Logger.log('Novo token da API: ' + token)
+  Logger.log('Atualize SHEETS_TOKEN na Vercel e no .env.local.')
+  return token
 }
 
 function doGet() {

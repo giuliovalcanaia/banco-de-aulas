@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { DownloadIcon, Trash2Icon, UploadIcon } from 'lucide-react'
+import { DownloadIcon, LogOutIcon, MailIcon, Trash2Icon, UploadIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -27,7 +28,6 @@ import { TimeSelect } from '@/components/TimeSelect'
 import { errorMessage } from '@/lib/errors'
 import { AFTERNOON_BREAK, MORNING_BREAK } from '@/lib/schedule'
 import { readImportFile } from '@/lib/storage'
-import type { SheetsConfig } from '@/lib/sheetsConfig'
 import type { Settings, StoreData, TimeRange } from '@/lib/types'
 import { isValidTime, rangeMinutes, timeToMinutes } from '@/lib/time'
 import { cn } from '@/lib/utils'
@@ -45,11 +45,11 @@ const WEEKDAYS = [
 type SettingsPanelProps = {
   settings: Settings
   entryCount: number
-  config: SheetsConfig
-  allowDisconnect: boolean
+  email?: string | null
+  syncLabel?: string
   onSave: (settings: Settings) => Promise<void>
   onRefresh: () => void
-  onDisconnect: () => void
+  onSignOut: () => void
   onExport: () => void
   onImport: (data: StoreData) => Promise<void>
   onReset: () => Promise<void>
@@ -87,11 +87,11 @@ function RangeFields({ label, value, onChange }: RangeFieldsProps) {
 export function SettingsPanel({
   settings,
   entryCount,
-  config,
-  allowDisconnect,
+  email,
+  syncLabel,
   onSave,
   onRefresh,
-  onDisconnect,
+  onSignOut,
   onExport,
   onImport,
   onReset,
@@ -281,8 +281,8 @@ export function SettingsPanel({
           <CardTitle>Backup e dados</CardTitle>
           <CardDescription>
             {entryCount === 0
-              ? 'Nenhum lançamento salvo na planilha.'
-              : `${entryCount} ${entryCount === 1 ? 'lançamento salvo' : 'lançamentos salvos'} na planilha.`}{' '}
+              ? 'Nenhum lançamento salvo na nuvem.'
+              : `${entryCount} ${entryCount === 1 ? 'lançamento salvo' : 'lançamentos salvos'} na nuvem.`}{' '}
             Exporte um JSON como cópia extra.
           </CardDescription>
         </CardHeader>
@@ -370,16 +370,32 @@ export function SettingsPanel({
 
       <Card>
         <CardHeader>
-          <CardTitle>Sincronização</CardTitle>
+          <CardTitle>Sincronização e acesso</CardTitle>
           <CardDescription>
-            Os lançamentos são gravados em uma planilha do Google, não neste
-            navegador.
+            Os lançamentos são gravados no Firestore (Google Cloud) e
+            sincronizados entre seus dispositivos. O acesso é protegido pelo
+            login Google.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-3">
-          <p className="break-all rounded-lg border bg-muted/40 px-3 py-2 font-mono text-xs text-muted-foreground">
-            {config.url}
+          {email && (
+            <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+              <MailIcon className="size-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 truncate">{email}</span>
+              <Badge variant="outline" className="ml-auto shrink-0">
+                sessão ativa
+              </Badge>
+            </div>
+          )}
+
+          {syncLabel && (
+            <p className="text-xs text-muted-foreground">{syncLabel}</p>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            A sessão expira 30 dias após o login. O app funciona offline e
+            envia as alterações quando a conexão voltar.
           </p>
 
           <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
@@ -389,25 +405,18 @@ export function SettingsPanel({
               onClick={onRefresh}
               className="h-11 w-full sm:h-8 sm:w-auto"
             >
-              Recarregar dados
+              Tentar sincronizar
             </Button>
-            {allowDisconnect && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onDisconnect}
-                className="h-11 w-full sm:h-8 sm:w-auto"
-              >
-                Desconectar
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onSignOut}
+              className="h-11 w-full sm:h-8 sm:w-auto"
+            >
+              <LogOutIcon />
+              Sair da conta
+            </Button>
           </div>
-
-          {!allowDisconnect && (
-            <p className="text-xs text-muted-foreground">
-              Conexão definida pelas variáveis de ambiente.
-            </p>
-          )}
         </CardContent>
       </Card>
 

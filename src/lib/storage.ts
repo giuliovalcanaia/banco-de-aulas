@@ -1,20 +1,17 @@
 import { DEFAULT_SETTINGS, SCHEMA_VERSION } from './defaults'
 import { todayISO } from './date'
-import { newId } from './id'
 import type { DayEntry, Settings, StoreData, TimeRange } from './types'
 import { isValidTime } from './time'
 
-/** Chave antiga, usada apenas na migração única para a planilha. */
+/** Chave antiga do app offline. Mantida apenas para importação opcional. */
 const LEGACY_KEY = 'banco-de-aulas:data'
-const CACHE_KEY = 'banco-de-aulas:cache'
-const MIGRATION_KEY = 'banco-de-aulas:migrated-to-sheets'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function parseRange(value: unknown): TimeRange | null {
+export function parseRange(value: unknown): TimeRange | null {
   if (!isRecord(value)) return null
   const { start, end } = value
   if (typeof start !== 'string' || typeof end !== 'string') return null
@@ -22,7 +19,7 @@ function parseRange(value: unknown): TimeRange | null {
   return { start, end }
 }
 
-function parseSettings(value: unknown): Settings {
+export function parseSettings(value: unknown): Settings {
   if (!isRecord(value)) return { ...DEFAULT_SETTINGS }
 
   const minutesPerAula =
@@ -56,7 +53,10 @@ function parseEntry(value: unknown): DayEntry | null {
   if (value.afternoon !== null && afternoon === null) return null
 
   return {
-    id: typeof value.id === 'string' && value.id ? value.id : newId(),
+    id:
+      typeof value.id === 'string' && value.id
+        ? value.id
+        : value.date,
     date: value.date,
     morning,
     afternoon,
@@ -66,7 +66,7 @@ function parseEntry(value: unknown): DayEntry | null {
   }
 }
 
-/** Valida e normaliza um objeto vindo do localStorage ou de um arquivo. */
+/** Valida e normaliza um objeto vindo do Firestore, do localStorage ou de um arquivo. */
 export function parseStoreData(value: unknown): StoreData {
   if (!isRecord(value)) {
     throw new Error('Arquivo inválido: esperado um objeto JSON.')
@@ -105,43 +105,6 @@ export function loadLegacyData(): StoreData | null {
     console.error('Não foi possível ler os dados antigos.', error)
     return null
   }
-}
-
-export function wasMigrated(): boolean {
-  if (typeof localStorage === 'undefined') return false
-  return localStorage.getItem(MIGRATION_KEY) === '1'
-}
-
-export function markMigrated(): void {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(MIGRATION_KEY, '1')
-}
-
-/** Cache de leitura para pintar a tela antes da planilha responder. */
-export function loadCache(): StoreData | null {
-  if (typeof localStorage === 'undefined') return null
-
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    return parseStoreData(JSON.parse(raw))
-  } catch {
-    return null
-  }
-}
-
-export function saveCache(data: StoreData): void {
-  if (typeof localStorage === 'undefined') return
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data))
-  } catch (error) {
-    console.error('Não foi possível salvar o cache local.', error)
-  }
-}
-
-export function clearCache(): void {
-  if (typeof localStorage === 'undefined') return
-  localStorage.removeItem(CACHE_KEY)
 }
 
 export function exportData(data: StoreData): void {

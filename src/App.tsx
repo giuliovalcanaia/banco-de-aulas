@@ -1,57 +1,45 @@
 import { useState } from 'react'
-import { GraduationCapIcon } from 'lucide-react'
+import { GraduationCapIcon, LogOutIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { BalanceCounter, BalancePill } from '@/components/BalanceCounter'
 import { DayForm } from '@/components/DayForm'
 import { HistoryList } from '@/components/HistoryList'
+import { LoginScreen } from '@/components/LoginScreen'
 import { MobileNav, type TabValue } from '@/components/MobileNav'
 import { SettingsPanel } from '@/components/SettingsPanel'
-import { SetupScreen } from '@/components/SetupScreen'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
+import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/hooks/useStore'
 import { useTheme } from '@/hooks/useTheme'
 import { totalDeltaMinutes } from '@/lib/balance'
 import { todayISO } from '@/lib/date'
 import { errorMessage } from '@/lib/errors'
-import {
-  clearSheetsConfig,
-  getSheetsConfig,
-  hasEnvConfig,
-  saveSheetsConfig,
-  type SheetsConfig,
-} from '@/lib/sheetsConfig'
-import { clearCache, exportData } from '@/lib/storage'
+import { exportData } from '@/lib/storage'
 import type { DayEntry, StoreData } from '@/lib/types'
-import { cn } from '@/lib/utils'
 
 const TABS: TabValue[] = ['hoje', 'historico', 'ajustes']
 
 export default function App() {
-  const [config, setConfig] = useState<SheetsConfig | null>(() =>
-    getSheetsConfig(),
-  )
+  const auth = useAuth()
   const [tab, setTab] = useState<TabValue>('hoje')
   const [selectedDate, setSelectedDate] = useState(todayISO())
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
-  const store = useStore(config)
+  const store = useStore(auth.signedIn, auth.user?.uid ?? null)
   const { theme, toggle: toggleTheme } = useTheme()
 
-  const handleConnect = (nextConfig: SheetsConfig) => {
-    clearCache()
-    saveSheetsConfig(nextConfig)
-    setConfig(nextConfig)
-  }
-
-  const handleDisconnect = () => {
-    clearSheetsConfig()
-    clearCache()
-    setConfig(null)
-  }
+  const syncLabel =
+    store.syncState === 'saving'
+      ? 'Salvando alterações...'
+      : store.syncState === 'offline'
+        ? 'Sem conexão — usando os dados salvos neste dispositivo.'
+        : store.syncState === 'error'
+          ? 'Falha na sincronização.'
+          : 'Tudo sincronizado.'
 
   const handleTabChange = (value: string) => {
     if (!TABS.includes(value as TabValue)) return
@@ -90,10 +78,35 @@ export default function App() {
     await store.resetData()
   }
 
-  if (!config) {
+  const handleSignOut = () => {
+    void auth.signOut()
+  }
+
+  if (auth.initializing) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-10 text-center">
+            <div className="mx-auto size-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+            <p className="mt-4 text-sm text-muted-foreground">
+              Verificando sessão...
+            </p>
+          </CardContent>
+        </Card>
+        <Toaster position="top-center" richColors theme={theme} />
+      </div>
+    )
+  }
+
+  if (!auth.signedIn) {
     return (
       <>
-        <SetupScreen onConnect={handleConnect} />
+        <LoginScreen
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onSignIn={auth.signIn}
+          message={auth.message}
+        />
         <Toaster position="top-center" richColors theme={theme} />
       </>
     )
@@ -108,7 +121,7 @@ export default function App() {
               <>
                 <div className="mx-auto size-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Conectando à planilha...
+                  Conectando aos seus dados...
                 </p>
               </>
             ) : (
@@ -121,15 +134,13 @@ export default function App() {
                   <Button type="button" onClick={store.refresh}>
                     Tentar de novo
                   </Button>
-                  {!hasEnvConfig() && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleDisconnect}
-                    >
-                      Configurar conexão
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSignOut}
+                  >
+                    Sair da conta
+                  </Button>
                 </div>
               </>
             )}
@@ -171,37 +182,47 @@ export default function App() {
               {store.data.entries.length === 1 ? 'lançamento' : 'lançamentos'}
             </Badge>
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="hidden size-8 sm:inline-flex"
+              onClick={handleSignOut}
+              aria-label="Sair da conta"
+              title="Sair da conta"
+            >
+              <LogOutIcon />
+            </Button>
           </div>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 sm:pb-40 sm:pt-6">
-        {(store.loading || store.error) && (
-          <div
-            className={cn(
-              'mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm',
-              store.error
-                ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                : 'bg-muted/50 text-muted-foreground',
-            )}
-          >
-            <span>
-              {store.loading
-                ? 'Sincronizando com a planilha...'
-                : `Sem conexão com a planilha: ${store.error}`}
-            </span>
-            {!store.loading && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={store.refresh}
-              >
-                Tentar de novo
-              </Button>
-            )}
+        {store.error ? (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <span>Não foi possível sincronizar: {store.error}</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={store.refresh}
+            >
+              Tentar de novo
+            </Button>
           </div>
-        )}
+        ) : store.syncState === 'offline' ? (
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+            <span>
+              Sem conexão. As alterações serão enviadas quando a internet
+              voltar.
+            </span>
+          </div>
+        ) : store.syncState === 'saving' ? (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+            <div className="size-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+            <span>Salvando alterações...</span>
+          </div>
+        ) : null}
 
         <Tabs value={tab} onValueChange={handleTabChange}>
           <TabsList className="hidden w-full grid-cols-3 sm:grid">
@@ -248,11 +269,11 @@ export default function App() {
             <SettingsPanel
               settings={store.data.settings}
               entryCount={store.data.entries.length}
-              config={config}
-              allowDisconnect={!hasEnvConfig()}
+              email={auth.email}
+              syncLabel={syncLabel}
               onSave={store.updateSettings}
               onRefresh={store.refresh}
-              onDisconnect={handleDisconnect}
+              onSignOut={handleSignOut}
               onExport={handleExport}
               onImport={handleImport}
               onReset={handleReset}

@@ -15,28 +15,14 @@
     <meta name="color-scheme" content="light dark" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://accounts.google.com" />
+    <link rel="preconnect" href="https://firestore.googleapis.com" />
+    <link rel="preconnect" href="https://banco-de-dados-7a088.firebaseapp.com" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Banco de Aulas" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <script>
-      // Aplica o tema antes do primeiro paint para evitar flash claro/escuro.
-      ;(function () {
-        try {
-          var stored = localStorage.getItem('banco-de-aulas:theme')
-          var dark = stored
-            ? stored === 'dark'
-            : window.matchMedia('(prefers-color-scheme: dark)').matches
-          var root = document.documentElement
-          root.classList.toggle('dark', dark)
-          root.style.colorScheme = dark ? 'dark' : 'light'
-          var meta = document.querySelector('meta[name="theme-color"]')
-          if (meta) meta.setAttribute('content', dark ? '#18181b' : '#ffffff')
-        } catch (error) {
-          // Sem localStorage: segue o tema do sistema.
-        }
-      })()
-    </script>
+    <script src="/theme-init.js"></script>
     <title>Banco de Aulas</title>
   </head>
   <body>

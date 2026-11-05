@@ -7,37 +7,74 @@ com 15 minutos de lanche em cada período (09:30–09:45 e 15:15–15:30). Isso 
 7h30 efetivas = 10 aulas de 45 minutos. Só os dias divergentes são lançados: dia
 sem registro é dia padrão, com saldo zero.
 
-Os dados ficam em uma **planilha do Google**, não no navegador. Assim, trocar de
-navegador ou limpar o cache não apaga nada.
+Os dados ficam no **Cloud Firestore** e o acesso é protegido por **login Google**
+via Firebase Auth. Só a conta configurada em `VITE_AUTHORIZED_EMAIL` abre o banco
+de horas. O app é um **PWA** e funciona offline.
 
-## Configuração da planilha (uma vez)
+## Arquitetura
 
-1. Crie uma planilha no Google Sheets.
-2. Abra **Extensões → Apps Script**.
-3. Substitua o conteúdo de `Code.gs` pelo arquivo
-   `google-apps-script/Code.gs` deste projeto.
-4. Execute a função `setup` e autorize o acesso.
-5. Abra **Exibir → Registros** e copie o token exibido.
-6. Vá em **Implantar → Nova implantação → App da Web**:
-   - Executar como: **eu**
-   - Quem tem acesso: **qualquer pessoa**
-7. Copie a URL terminada em `/exec`.
-8. Abra o app e cole a URL e o token na tela **Conectar à planilha**.
-
-A conexão fica salva no navegador. Em outro navegador ou celular, repita apenas o
-passo 8 (ou use as variáveis de ambiente abaixo).
-
-### Variáveis de ambiente (opcional)
-
-Copie `.env.example` para `.env.local` e preencha:
-
-```bash
-VITE_SHEETS_API_URL=https://script.google.com/macros/s/SEU_ID/exec
-VITE_SHEETS_TOKEN=seu_token
+```
+PWA (Vite/React)
+  ├── Firebase Auth (Google)
+  ├── Firestore (cache offline + sincronização em tempo real)
+  └── Firebase Hosting
+        └── https://banco-de-dados-7a088.web.app
 ```
 
-Com as duas variáveis preenchidas, o app conecta direto, sem mostrar a tela de
-configuração.
+- A sessão dura **30 dias**, validada no cliente e nas Security Rules.
+- O Firestore guarda os dados por usuário (`users/{uid}/...`).
+- O service worker cuida apenas do shell e dos assets.
+- O deploy e a configuração estão em **[DEPLOY.md](DEPLOY.md)**.
+
+## Configuração do Firebase
+
+O projeto já está configurado:
+
+- Projeto: `banco-de-dados-7a088`
+- Firestore: `southamerica-east1` (São Paulo)
+- Auth: Google habilitado
+- Hosting: `https://banco-de-dados-7a088.web.app`
+
+A configuração pública fica em `.env.local` (desenvolvimento) e
+`.env.production` (build). O modelo está em `.env.example`:
+
+```bash
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=SEU_PROJETO.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=SEU_PROJETO
+VITE_FIREBASE_STORAGE_BUCKET=SEU_PROJETO.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_AUTHORIZED_EMAIL=giuliovalcanaia@gmail.com
+```
+
+Esses valores não são segredos. A autorização real está em `firestore.rules`.
+
+## Como rodar
+
+```bash
+npm install
+npm run dev
+```
+
+Outros scripts:
+
+```bash
+npm run build         # typecheck + build de produção
+npm run preview       # pré-visualização do build estático
+npm run lint          # oxlint
+npm test              # testes unitários (Vitest)
+npm run test:watch
+npm run test:rules    # Security Rules no emulador do Firestore
+npm run emulators     # Auth + Firestore + UI locais
+```
+
+Para testar contra os emuladores:
+
+```bash
+npm run emulators
+VITE_USE_FIREBASE_EMULATOR=true npm run dev
+```
 
 ## Como usar
 
@@ -46,42 +83,51 @@ configuração.
   trocada pelo calendário ou pelo botão **Hoje**.
 - **Histórico**: mostra apenas os dias lançados, agrupados por mês, com o saldo
   de cada dia e o subtotal do mês. Dá para editar ou excluir cada lançamento.
-  Ao editar pelo histórico, mudar a data **move** o lançamento para o novo dia
-  em vez de criar uma cópia.
+  Ao editar pelo histórico, mudar a data **move** o lançamento para o novo dia.
 - **Ajustes**: muda a jornada padrão, a duração da aula e os dias úteis; exporta
-  e importa backup em JSON; apaga todos os dados; recarrega ou desconecta a
-  planilha.
+  e importa backup em JSON; apaga todos os dados; tenta sincronizar e mostra a
+  conta logada.
 - **Contador de saldo**: no celular aparece como uma pílula no cabeçalho; no
   desktop fica no canto da tela com o saldo em aulas, o equivalente em horas e a
   estimativa em dias de folga.
-- **Tema**: o botão de sol/lua no cabeçalho alterna entre claro e escuro. A
-  escolha fica salva no navegador (`localStorage`); na primeira visita o tema do
-  sistema é usado.
+- **Tema**: o botão de sol/lua alterna entre claro e escuro. A escolha fica
+  salva no navegador (`localStorage`); na primeira visita o tema do sistema é
+  usado.
 
 ### Instalar no celular (PWA)
 
-O app é um PWA e pode ser instalado na tela inicial:
-
-- **Android/Chrome**: menu ⋮ → **Instalar app** (ou o aviso de instalação).
+- **Android/Chrome**: menu ⋮ → **Instalar app**.
 - **iPhone/Safari**: **Compartilhar** → **Adicionar à Tela de Início**.
 
-Depois de instalado, abre em tela cheia e sem a barra do navegador. O service
-worker guarda a interface para abrir offline, mas **salvar e editar continuam
-exigindo conexão** com a planilha. A instalação exige HTTPS (funciona em
-produção e em `localhost`).
+O app abre offline com os últimos dados em cache. Criar, editar e excluir também
+funcionam offline; o Firestore envia tudo quando a conexão volta. A instalação
+exige HTTPS (o Firebase Hosting fornece).
+
+## Segurança e privacidade
+
+- Login restrito a `giuliovalcanaia@gmail.com` (configurável em
+  `VITE_AUTHORIZED_EMAIL` e em `firestore.rules`).
+- O Firebase Auth valida a identidade; o Firestore valida o e-mail e o `uid`.
+- Sessão de 30 dias aplicada via `auth_time`, no cliente e nas Rules.
+- O Firestore usa cache local persistente; ao sair, o app limpa esse cache.
+- Não há servidor próprio de dados, login alternativo nem analytics.
+- Para revogar o acesso, remova o usuário no Firebase Auth ou troque o e-mail
+  autorizado nas Rules.
 
 ## Onde os dados ficam
 
-- Aba **Lançamentos**: um registro por dia, com os períodos e a observação.
-- Aba **Ajustes**: uma linha com a jornada padrão, minutos por aula e dias úteis.
-- O navegador guarda apenas um cache de leitura para abrir a tela mais rápido.
-  A fonte de verdade é sempre a planilha.
+```
+users/{uid}/entries/{YYYY-MM-DD}
+  date, morning, afternoon, note, updatedAt
 
-Para fazer backup:
+users/{uid}/settings/main
+  defaultMorning, defaultAfternoon, minutesPerAula, workdays, schemaVersion, updatedAt
+```
 
+- O ID do documento de entrada é a própria data, o que impede duplicatas.
+- O navegador mantém um cache de leitura/escrita offline do Firestore.
 - **Ajustes → Exportar JSON** gera uma cópia completa.
-- O Google Drive mantém o histórico de versões da planilha.
-- Também é possível fazer uma cópia da planilha pelo menu **Arquivo**.
+- O Firestore no plano Spark não tem backup gerenciado; use a exportação JSON.
 
 ## Regras de cálculo
 
@@ -100,47 +146,21 @@ lançamento sem períodos e desconta 10 aulas.
 ## Stack
 
 - Vite + React + TypeScript
-- Tailwind CSS v4
-- shadcn/ui (Radix)
+- Tailwind CSS v4 + shadcn/ui (Radix)
 - PWA (manifest + service worker) com ícones gerados a partir do favicon
-- Google Apps Script + Google Sheets
+- Firebase Auth + Cloud Firestore + Firebase Hosting
 - Exportação/importação em JSON
-
-## Como rodar
-
-```bash
-npm install
-npm run dev
-```
-
-Outros scripts:
-
-```bash
-npm run build    # build de produção
-npm run preview  # pré-visualização do build
-npm run lint     # oxlint
-npm test         # testes de cálculo
-```
-
-O build gera arquivos estáticos em `dist/`; pode ser publicado em qualquer
-hospedagem estática, como Vercel ou GitHub Pages.
-
-## Privacidade
-
-Não há servidor próprio, login ou analytics. Os dados ficam na sua conta do
-Google, na planilha configurada. A URL do Web App e o token dão acesso à
-planilha: não compartilhe o token. Para revogar o acesso, gere outro token ou
-arquive a implantação no Apps Script.
 
 ## Estrutura
 
 ```
 src/
-├── components/
-│   └── ui/        # componentes shadcn/ui
-├── hooks/         # estado e sincronização
-├── lib/           # cálculo, API da planilha e armazenamento
+├── components/       # UI (inclui shadcn/ui em components/ui)
+├── hooks/            # estado, autenticação, sincronização e tema
+├── lib/              # cálculo, Firebase, Firestore, armazenamento e auth
 └── App.tsx
-google-apps-script/
-└── Code.gs        # API que lê e escreve na planilha
+firestore.rules       # autorização e validação
+firebase.json         # Hosting, headers/CSP, Firestore e emuladores
+tests/                # testes das Security Rules
+.github/workflows/    # deploy automático somente na main
 ```

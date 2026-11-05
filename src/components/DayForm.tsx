@@ -26,8 +26,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { TimeSelect } from '@/components/TimeSelect'
-import type { EntryInput } from '@/hooks/useStore'
-import type { DayEntry, Settings, TimeRange } from '@/lib/types'
+import type { DayEntry, EntryInput, Settings, TimeRange } from '@/lib/types'
 import { formatDateLong, isValidISODate, todayISO } from '@/lib/date'
 import { errorMessage } from '@/lib/errors'
 import { AFTERNOON_BREAK, MORNING_BREAK } from '@/lib/schedule'
@@ -329,6 +328,7 @@ export function DayForm({
               value={note}
               onChange={(event) => setNote(event.target.value)}
               rows={2}
+              maxLength={500}
               placeholder="Ex.: reunião, reposição de aula, saída antecipada..."
             />
           </div>

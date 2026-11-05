@@ -27,3 +27,5 @@ export type StoreData = {
   settings: Settings
   entries: DayEntry[]
 }
+
+export type EntryInput = Omit<DayEntry, 'id' | 'updatedAt'> & { id?: string }
