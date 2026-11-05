@@ -66,8 +66,8 @@ export function LoginScreen({
             </div>
             <CardTitle className="text-lg">Banco de Aulas</CardTitle>
             <CardDescription>
-              Entre com a conta Google autorizada para acessar o banco de horas
-              e seus lançamentos.
+              Entre com sua conta Google para acessar seu banco de horas e seus
+              lançamentos.
             </CardDescription>
           </CardHeader>
 
@@ -95,8 +95,8 @@ export function LoginScreen({
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <ShieldCheckIcon className="mt-0.5 size-4 shrink-0" />
               <p>
-                Apenas a conta autorizada tem acesso. Os lançamentos ficam
-                salvos no Firebase e sincronizam entre dispositivos. A sessão
+                Seus lançamentos ficam salvos no Firebase e sincronizam entre
+                dispositivos. Cada conta vê apenas os próprios dados. A sessão
                 dura 30 dias.
               </p>
             </div>

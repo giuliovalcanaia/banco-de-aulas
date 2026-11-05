@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/hooks/useStore'
 import { useTheme } from '@/hooks/useTheme'
@@ -229,6 +230,17 @@ export default function App() {
           </TabsList>
 
           <TabsContent value="hoje" className="mt-4">
+            {store.data.entries.length === 0 && (
+              <Alert className="mb-4">
+                <AlertTitle>Bem-vindo ao Banco de Aulas</AlertTitle>
+                <AlertDescription>
+                  Seu banco de horas começa zerado. O formulário abaixo já vem
+                  preenchido com a jornada padrão (07:15–11:15 e 13:00–17:00);
+                  ajuste o que divergir e salve. Você pode personalizar a
+                  jornada e os dias úteis na aba <strong>Ajustes</strong>.
+                </AlertDescription>
+              </Alert>
+            )}
             <DayForm
               settings={store.data.settings}
               entriesByDate={store.entriesByDate}

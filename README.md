@@ -8,8 +8,9 @@ com 15 minutos de lanche em cada período (09:30–09:45 e 15:15–15:30). Isso 
 sem registro é dia padrão, com saldo zero.
 
 Os dados ficam no **Cloud Firestore** e o acesso é protegido por **login Google**
-via Firebase Auth. Só a conta configurada em `VITE_AUTHORIZED_EMAIL` abre o banco
-de horas. O app é um **PWA** e funciona offline.
+via Firebase Auth. Qualquer conta Google pode entrar e gerenciar seu próprio
+banco de horas: cada usuário vê **apenas os próprios dados** (`users/{uid}/...`).
+O app é um **PWA** e funciona offline.
 
 ## Arquitetura
 
@@ -35,8 +36,9 @@ O projeto já está configurado:
 - Auth: Google habilitado
 - Hosting: `https://banco-de-dados-7a088.web.app`
 
-A configuração pública fica em `.env.local` (desenvolvimento) e
-`.env.production` (build). O modelo está em `.env.example`:
+A configuração pública fica em `.env.local` (desenvolvimento) e nas **Variables**
+do GitHub Actions (build/CI). O `.env.production` não é versionado, para não fixar
+o projeto Firebase no repositório. O modelo está em `.env.example`:
 
 ```bash
 VITE_FIREBASE_API_KEY=
@@ -45,10 +47,10 @@ VITE_FIREBASE_PROJECT_ID=SEU_PROJETO
 VITE_FIREBASE_STORAGE_BUCKET=SEU_PROJETO.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
-VITE_AUTHORIZED_EMAIL=giuliovalcanaia@gmail.com
 ```
 
-Esses valores não são segredos. A autorização real está em `firestore.rules`.
+Esses valores não são segredos. A autorização e o isolamento entre usuários estão
+em `firestore.rules`.
 
 ## Como rodar
 
@@ -105,14 +107,14 @@ exige HTTPS (o Firebase Hosting fornece).
 
 ## Segurança e privacidade
 
-- Login restrito a `giuliovalcanaia@gmail.com` (configurável em
-  `VITE_AUTHORIZED_EMAIL` e em `firestore.rules`).
-- O Firebase Auth valida a identidade; o Firestore valida o e-mail e o `uid`.
+- Login com qualquer conta Google; cada usuário acessa somente `users/{uid}/...`
+  (o isolamento é imposto pelas Security Rules, não só pelo cliente).
+- O Firebase Auth valida a identidade; o Firestore valida o `uid`, a verificação
+  de e-mail e a validade da sessão.
 - Sessão de 30 dias aplicada via `auth_time`, no cliente e nas Rules.
 - O Firestore usa cache local persistente; ao sair, o app limpa esse cache.
-- Não há servidor próprio de dados, login alternativo nem analytics.
-- Para revogar o acesso, remova o usuário no Firebase Auth ou troque o e-mail
-  autorizado nas Rules.
+- Não há servidor próprio de dados nem analytics.
+- Para revogar o acesso de alguém, remova o usuário no Firebase Auth.
 
 ## Onde os dados ficam
 

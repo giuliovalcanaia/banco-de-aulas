@@ -1,20 +1,6 @@
 import type { User } from 'firebase/auth'
 
-export const AUTHORIZED_EMAIL = (
-  (import.meta.env.VITE_AUTHORIZED_EMAIL as string | undefined) ??
-  'giuliovalcanaia@gmail.com'
-)
-  .trim()
-  .toLowerCase()
-
 export const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
-
-export function isAuthorizedEmail(email: string | null | undefined): boolean {
-  return (
-    typeof email === 'string' &&
-    email.trim().toLowerCase() === AUTHORIZED_EMAIL
-  )
-}
 
 function authTimeFromClaims(claims: Record<string, unknown>): number | null {
   const value = claims.auth_time

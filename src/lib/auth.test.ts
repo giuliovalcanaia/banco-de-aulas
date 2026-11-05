@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import type { User } from 'firebase/auth'
 import {
   authErrorMessage,
-  isAuthorizedEmail,
   isSessionExpired,
   SESSION_MAX_AGE_MS,
 } from './auth'
@@ -19,13 +18,6 @@ function makeUser(authTimeSeconds: number): User {
 }
 
 describe('auth', () => {
-  it('aceita apenas o e-mail autorizado, sem diferenciar maiúsculas', () => {
-    expect(isAuthorizedEmail('giuliovalcanaia@gmail.com')).toBe(true)
-    expect(isAuthorizedEmail('GiulioValcanaia@Gmail.com')).toBe(true)
-    expect(isAuthorizedEmail('outra@gmail.com')).toBe(false)
-    expect(isAuthorizedEmail(null)).toBe(false)
-  })
-
   it('considera a sessão válida antes de 30 dias', async () => {
     const now = Date.now()
     const user = makeUser(Math.floor((now - SESSION_MAX_AGE_MS + 60_000) / 1000))
