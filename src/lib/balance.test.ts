@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS } from './defaults'
 import { balanceForDay, totalDeltaMinutes } from './balance'
+import { AFTERNOON_BREAK, MORNING_BREAK } from './schedule'
 import {
   dayMinutes,
   defaultDayMinutes,
@@ -33,32 +34,37 @@ describe('time', () => {
 
   it('calcula intervalos e ignora intervalos invertidos', () => {
     expect(rangeMinutes({ start: '07:15', end: '11:15' })).toBe(240)
+    expect(rangeMinutes({ start: '07:15', end: '11:15' }, MORNING_BREAK)).toBe(225)
+    expect(rangeMinutes({ start: '07:15', end: '09:30' }, MORNING_BREAK)).toBe(135)
+    expect(rangeMinutes({ start: '09:30', end: '09:45' }, MORNING_BREAK)).toBe(0)
+    expect(rangeMinutes({ start: '13:00', end: '17:00' }, AFTERNOON_BREAK)).toBe(225)
     expect(rangeMinutes({ start: '11:15', end: '07:15' })).toBe(0)
     expect(rangeMinutes(null)).toBe(0)
   })
 
-  it('calcula a jornada padrão como 480 minutos', () => {
-    expect(defaultDayMinutes(DEFAULT_SETTINGS)).toBe(480)
+  it('calcula a jornada padrão como 450 minutos, sem os lanches', () => {
+    expect(defaultDayMinutes(DEFAULT_SETTINGS)).toBe(450)
     expect(
       dayMinutes({
         morning: { start: '07:15', end: '11:15' },
         afternoon: { start: '13:00', end: '17:00' },
       }),
-    ).toBe(480)
+    ).toBe(450)
   })
 
   it('formata duração', () => {
     expect(formatDuration(90)).toBe('1h30')
+    expect(formatDuration(450)).toBe('7h30')
     expect(formatDuration(480)).toBe('8h00')
     expect(formatDuration(-45)).toBe('-45min')
     expect(formatDuration(0)).toBe('0h')
   })
 
   it('formata aulas com sinal', () => {
-    expect(formatSignedAulas(45, 48)).toBe('+0,94')
-    expect(formatSignedAulas(90, 48)).toBe('+1,88')
-    expect(formatSignedAulas(-480, 48)).toBe('-10')
-    expect(formatSignedAulas(0, 48)).toBe('0')
+    expect(formatSignedAulas(45, 45)).toBe('+1')
+    expect(formatSignedAulas(90, 45)).toBe('+2')
+    expect(formatSignedAulas(-450, 45)).toBe('-10')
+    expect(formatSignedAulas(0, 45)).toBe('0')
   })
 })
 
@@ -80,10 +86,17 @@ describe('balance', () => {
     expect(balanceForDay(day, DEFAULT_SETTINGS).deltaMinutes).toBe(90)
   })
 
+  it('saída logo após o recreio desconta o lanche e vale 2 aulas', () => {
+    const day = makeEntry({ morning: { start: '07:15', end: '09:30' } })
+    const balance = balanceForDay(day, DEFAULT_SETTINGS)
+    expect(balance.deltaMinutes).toBe(-90)
+    expect(balance.deltaAulas).toBe(-2)
+  })
+
   it('folga desconta uma jornada inteira', () => {
     const day = makeEntry({ morning: null, afternoon: null })
     const balance = balanceForDay(day, DEFAULT_SETTINGS)
-    expect(balance.deltaMinutes).toBe(-480)
+    expect(balance.deltaMinutes).toBe(-450)
     expect(balance.deltaAulas).toBe(-10)
   })
 
