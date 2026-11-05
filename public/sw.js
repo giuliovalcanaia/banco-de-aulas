@@ -3,10 +3,9 @@
  *
  * - Navegação: network-first com fallback para o shell em cache (abre offline).
  * - Assets estáticos same-origin: cache-first (os nomes têm hash e são imutáveis).
- * - Requisições à API do Google Sheets (outra origem) e métodos não-GET nunca
- *   passam pelo cache: os dados continuam vindo sempre da planilha.
+ * - Requisições ao Firestore/Auth são de outra origem e não passam pelo cache.
  */
-const VERSION = 'v1'
+const VERSION = 'v3'
 const SHELL_CACHE = `banco-de-aulas-shell-${VERSION}`
 const ASSET_CACHE = `banco-de-aulas-assets-${VERSION}`
 
@@ -52,7 +51,9 @@ async function precacheShell() {
     }
 
     await Promise.all(
-      [...urls].map((url) => cache.add(url).catch(() => undefined)),
+      ['/theme-init.js', ...urls].map((url) =>
+        cache.add(url).catch(() => undefined),
+      ),
     )
   } catch {
     // Sem rede no install: as próximas visitas completam o cache.
@@ -65,6 +66,12 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
+
+  // Script pequeno e sem hash: network-first para pegar correções de tema.
+  if (url.pathname === '/theme-init.js') {
+    event.respondWith(networkFirst(request))
+    return
+  }
 
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request))

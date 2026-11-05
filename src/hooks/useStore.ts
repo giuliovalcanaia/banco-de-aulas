@@ -1,190 +1,95 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'sonner'
-import { createEmptyData } from '@/lib/defaults'
-import { newId } from '@/lib/id'
-import { sheetsApi } from '@/lib/sheets'
-import type { SheetsConfig } from '@/lib/sheetsConfig'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  loadCache,
-  loadLegacyData,
-  markMigrated,
-  saveCache,
-  wasMigrated,
-} from '@/lib/storage'
-import type { DayEntry, Settings, StoreData } from '@/lib/types'
+  deleteEntry as deleteEntryFromDb,
+  replaceAll,
+  saveSettings,
+  subscribeStore,
+  upsertEntry as upsertEntryInDb,
+} from '@/lib/db'
+import { createEmptyData } from '@/lib/defaults'
+import { errorMessage } from '@/lib/errors'
+import type { EntryInput, Settings, StoreData } from '@/lib/types'
 
-export type EntryInput = Omit<DayEntry, 'id' | 'updatedAt'> & { id?: string }
+export type { EntryInput } from '@/lib/types'
 
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  return 'Não foi possível falar com a planilha.'
-}
+export type SyncState = 'loading' | 'synced' | 'saving' | 'offline' | 'error'
 
-export function useStore(config: SheetsConfig | null) {
-  const [data, setData] = useState<StoreData | null>(() => loadCache())
-  const [loading, setLoading] = useState(Boolean(config))
+/**
+ * `enabled` só vira true quando o usuário está autenticado. A tela de login não
+ * dispara leituras no Firestore.
+ */
+export function useStore(enabled: boolean, uid: string | null) {
+  const [data, setData] = useState<StoreData | null>(null)
+  const [syncState, setSyncState] = useState<SyncState>('loading')
   const [error, setError] = useState<string | null>(null)
   const [reloadVersion, setReloadVersion] = useState(0)
-  const dataRef = useRef<StoreData | null>(data)
-
-  const apply = useCallback((next: StoreData | null) => {
-    dataRef.current = next
-    setData(next)
-    if (next) saveCache(next)
-  }, [])
-
-  const currentData = useCallback((): StoreData => {
-    const current = dataRef.current
-    if (!current) throw new Error('Os dados ainda não foram carregados.')
-    return current
-  }, [])
-
-  const currentConfig = useCallback((): SheetsConfig => {
-    if (!config) throw new Error('A planilha não está configurada.')
-    return config
-  }, [config])
 
   useEffect(() => {
-    if (!config) {
-      setLoading(false)
-      apply(null)
+    if (!enabled || !uid) {
+      setData(null)
+      setSyncState('loading')
+      setError(null)
       return
     }
 
-    let cancelled = false
-    setLoading(true)
     setError(null)
+    setSyncState('loading')
 
-    void (async () => {
-      try {
-        let remote = await sheetsApi.load(config)
-        if (cancelled) return
-
-        if (remote.entries.length === 0 && !wasMigrated()) {
-          const legacy = loadLegacyData()
-          if (legacy) {
-            remote = await sheetsApi.replaceAll(config, legacy)
-            markMigrated()
-            if (!cancelled) {
-              toast.success('Dados deste navegador foram enviados para a planilha.')
-            }
-          } else {
-            markMigrated()
-          }
-        }
-
-        if (!cancelled) apply(remote)
-      } catch (loadError) {
-        if (!cancelled) setError(errorMessage(loadError))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [config, reloadVersion, apply])
+    return subscribeStore(
+      uid,
+      (next, meta) => {
+        setData(next)
+        setSyncState(
+          meta.pendingWrites ? 'saving' : meta.fromCache ? 'offline' : 'synced',
+        )
+      },
+      (firestoreError) => {
+        setError(errorMessage(firestoreError))
+        setSyncState('error')
+      },
+    )
+  }, [enabled, uid, reloadVersion])
 
   const refresh = useCallback(() => {
     setReloadVersion((version) => version + 1)
   }, [])
 
+  const currentUid = useCallback((): string => {
+    if (!uid) throw new Error('Você precisa estar autenticado.')
+    return uid
+  }, [uid])
+
   const upsertEntry = useCallback(
     async (input: EntryInput) => {
-      const previous = currentData()
-      const existingByDate = previous.entries.find(
-        (entry) => entry.date === input.date,
-      )
-      const id = input.id ?? existingByDate?.id ?? newId()
-      const entry: DayEntry = {
-        ...input,
-        id,
-        updatedAt: new Date().toISOString(),
-      }
-
-      const entries = [
-        ...previous.entries.filter(
-          (item) => item.id !== id && item.date !== input.date,
-        ),
-        entry,
-      ]
-
-      apply({ ...previous, entries })
-
-      try {
-        const saved = await sheetsApi.upsertEntry(currentConfig(), entry)
-        const current = dataRef.current
-        if (!current) return
-
-        const nextEntries = [
-          ...current.entries.filter(
-            (item) => item.id !== saved.id && item.date !== saved.date,
-          ),
-          saved,
-        ]
-
-        apply({ ...current, entries: nextEntries })
-      } catch (saveError) {
-        apply(previous)
-        throw saveError
-      }
+      await upsertEntryInDb(currentUid(), input)
     },
-    [apply, currentConfig, currentData],
+    [currentUid],
   )
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const previous = currentData()
-      apply({
-        ...previous,
-        entries: previous.entries.filter((entry) => entry.id !== id),
-      })
-
-      try {
-        await sheetsApi.deleteEntry(currentConfig(), id)
-      } catch (deleteError) {
-        apply(previous)
-        throw deleteError
-      }
+      await deleteEntryFromDb(currentUid(), id)
     },
-    [apply, currentConfig, currentData],
+    [currentUid],
   )
 
   const updateSettings = useCallback(
     async (settings: Settings) => {
-      const previous = currentData()
-      apply({ ...previous, settings })
-
-      try {
-        const saved = await sheetsApi.saveSettings(currentConfig(), settings)
-        const current = dataRef.current
-        if (current) apply({ ...current, settings: saved })
-      } catch (saveError) {
-        apply(previous)
-        throw saveError
-      }
+      await saveSettings(currentUid(), settings)
     },
-    [apply, currentConfig, currentData],
+    [currentUid],
   )
 
   const replaceData = useCallback(
     async (next: StoreData) => {
-      const previous = dataRef.current
-      try {
-        const saved = await sheetsApi.replaceAll(currentConfig(), next)
-        apply(saved)
-      } catch (replaceError) {
-        if (previous) apply(previous)
-        throw replaceError
-      }
+      await replaceAll(currentUid(), next)
     },
-    [apply, currentConfig],
+    [currentUid],
   )
 
   const resetData = useCallback(async () => {
-    await replaceData(createEmptyData())
-  }, [replaceData])
+    await replaceAll(currentUid(), createEmptyData())
+  }, [currentUid])
 
   const entriesByDate = useMemo(
     () => new Map((data?.entries ?? []).map((entry) => [entry.date, entry])),
@@ -194,7 +99,8 @@ export function useStore(config: SheetsConfig | null) {
   return {
     data,
     entriesByDate,
-    loading,
+    loading: data === null && syncState === 'loading',
+    syncState,
     error,
     refresh,
     upsertEntry,
