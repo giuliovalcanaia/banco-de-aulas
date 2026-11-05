@@ -1,10 +1,13 @@
-import { createEmptyData, DEFAULT_SETTINGS, SCHEMA_VERSION } from './defaults'
+import { DEFAULT_SETTINGS, SCHEMA_VERSION } from './defaults'
 import { todayISO } from './date'
 import { newId } from './id'
 import type { DayEntry, Settings, StoreData, TimeRange } from './types'
 import { isValidTime } from './time'
 
-const STORAGE_KEY = 'banco-de-aulas:data'
+/** Chave antiga, usada apenas na migração única para a planilha. */
+const LEGACY_KEY = 'banco-de-aulas:data'
+const CACHE_KEY = 'banco-de-aulas:cache'
+const MIGRATION_KEY = 'banco-de-aulas:migrated-to-sheets'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -90,25 +93,55 @@ export function parseStoreData(value: unknown): StoreData {
   }
 }
 
-export function loadData(): StoreData {
-  if (typeof localStorage === 'undefined') return createEmptyData()
+/** Lê os dados antigos do localStorage. Retorna null se não houver nada. */
+export function loadLegacyData(): StoreData | null {
+  if (typeof localStorage === 'undefined') return null
 
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return createEmptyData()
+    const raw = localStorage.getItem(LEGACY_KEY)
+    if (!raw) return null
     return parseStoreData(JSON.parse(raw))
   } catch (error) {
-    console.error('Não foi possível carregar os dados salvos.', error)
-    return createEmptyData()
+    console.error('Não foi possível ler os dados antigos.', error)
+    return null
   }
 }
 
-export function saveData(data: StoreData): void {
+export function wasMigrated(): boolean {
+  if (typeof localStorage === 'undefined') return false
+  return localStorage.getItem(MIGRATION_KEY) === '1'
+}
+
+export function markMigrated(): void {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(MIGRATION_KEY, '1')
+}
+
+/** Cache de leitura para pintar a tela antes da planilha responder. */
+export function loadCache(): StoreData | null {
+  if (typeof localStorage === 'undefined') return null
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-  } catch (error) {
-    console.error('Não foi possível salvar os dados.', error)
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    return parseStoreData(JSON.parse(raw))
+  } catch {
+    return null
   }
+}
+
+export function saveCache(data: StoreData): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data))
+  } catch (error) {
+    console.error('Não foi possível salvar o cache local.', error)
+  }
+}
+
+export function clearCache(): void {
+  if (typeof localStorage === 'undefined') return
+  localStorage.removeItem(CACHE_KEY)
 }
 
 export function exportData(data: StoreData): void {
