@@ -23,7 +23,7 @@ type HistoryListProps = {
   entries: DayEntry[]
   settings: Settings
   onEdit: (entry: DayEntry) => void
-  onDelete: (entry: DayEntry) => void
+  onDelete: (entry: DayEntry) => Promise<void>
 }
 
 function periodsLabel(entry: DayEntry): string {
@@ -197,8 +197,8 @@ export function HistoryList({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={() => {
-                if (pendingDelete) onDelete(pendingDelete)
+              onClick={async () => {
+                if (pendingDelete) await onDelete(pendingDelete)
                 setPendingDelete(null)
               }}
             >

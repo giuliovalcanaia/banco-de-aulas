@@ -23,7 +23,11 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { TimeSelect } from '@/components/TimeSelect'
+import { errorMessage } from '@/lib/errors'
+import { AFTERNOON_BREAK, MORNING_BREAK } from '@/lib/schedule'
 import { readImportFile } from '@/lib/storage'
+import type { SheetsConfig } from '@/lib/sheetsConfig'
 import type { Settings, StoreData, TimeRange } from '@/lib/types'
 import { isValidTime, rangeMinutes, timeToMinutes } from '@/lib/time'
 import { cn } from '@/lib/utils'
@@ -41,10 +45,14 @@ const WEEKDAYS = [
 type SettingsPanelProps = {
   settings: Settings
   entryCount: number
-  onSave: (settings: Settings) => void
+  config: SheetsConfig
+  allowDisconnect: boolean
+  onSave: (settings: Settings) => Promise<void>
+  onRefresh: () => void
+  onDisconnect: () => void
   onExport: () => void
-  onImport: (data: StoreData) => void
-  onReset: () => void
+  onImport: (data: StoreData) => Promise<void>
+  onReset: () => Promise<void>
 }
 
 type RangeFieldsProps = {
@@ -57,20 +65,16 @@ function RangeFields({ label, value, onChange }: RangeFieldsProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="w-16 text-sm font-medium">{label}</span>
-      <Input
-        type="time"
+      <TimeSelect
         value={value.start}
-        onChange={(event) => onChange({ ...value, start: event.target.value })}
-        className="w-[7.5rem]"
-        aria-label={`${label}: início`}
+        onChange={(start) => onChange({ ...value, start })}
+        ariaLabel={`${label}: início`}
       />
       <span className="text-sm text-muted-foreground">até</span>
-      <Input
-        type="time"
+      <TimeSelect
         value={value.end}
-        onChange={(event) => onChange({ ...value, end: event.target.value })}
-        className="w-[7.5rem]"
-        aria-label={`${label}: fim`}
+        onChange={(end) => onChange({ ...value, end })}
+        ariaLabel={`${label}: fim`}
       />
     </div>
   )
@@ -79,13 +83,18 @@ function RangeFields({ label, value, onChange }: RangeFieldsProps) {
 export function SettingsPanel({
   settings,
   entryCount,
+  config,
+  allowDisconnect,
   onSave,
+  onRefresh,
+  onDisconnect,
   onExport,
   onImport,
   onReset,
 }: SettingsPanelProps) {
   const [form, setForm] = useState<Settings>(settings)
   const [pendingImport, setPendingImport] = useState<StoreData | null>(null)
+  const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -102,21 +111,30 @@ export function SettingsPanel({
     })
   }
 
-  const handleSave = () => {
-    const ranges = [form.defaultMorning, form.defaultAfternoon]
+  const handleSave = async () => {
+    const ranges = [
+      { range: form.defaultMorning, breakWindow: MORNING_BREAK },
+      { range: form.defaultAfternoon, breakWindow: AFTERNOON_BREAK },
+    ]
 
     const hasInvalidTime = ranges.some(
-      (range) => !isValidTime(range.start) || !isValidTime(range.end),
+      ({ range }) =>
+        !isValidTime(range.start) || !isValidTime(range.end),
     )
     if (hasInvalidTime) {
       toast.error('Preencha a jornada padrão com horários válidos.')
       return
     }
 
-    const hasInvalidRange = ranges.some((range) => {
+    const hasInvalidRange = ranges.some(({ range, breakWindow }) => {
       const start = timeToMinutes(range.start)
       const end = timeToMinutes(range.end)
-      return start === null || end === null || end <= start || rangeMinutes(range) === 0
+      return (
+        start === null ||
+        end === null ||
+        end <= start ||
+        rangeMinutes(range, breakWindow) === 0
+      )
     })
     if (hasInvalidRange) {
       toast.error('O fim de cada período deve ser depois do início.')
@@ -133,8 +151,15 @@ export function SettingsPanel({
       return
     }
 
-    onSave(form)
-    toast.success('Ajustes salvos.')
+    setSaving(true)
+    try {
+      await onSave(form)
+      toast.success('Ajustes salvos.')
+    } catch (error) {
+      toast.error(errorMessage(error))
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -203,7 +228,8 @@ export function SettingsPanel({
                 className="w-32"
               />
               <p className="text-xs text-muted-foreground">
-                Com 48 minutos, 8 horas equivalem a 10 aulas.
+                Com 45 minutos, a jornada padrão de 7h30 (sem os lanches)
+                equivale a 10 aulas.
               </p>
             </div>
 
@@ -231,8 +257,8 @@ export function SettingsPanel({
           </div>
 
           <div className="flex justify-end">
-            <Button type="button" onClick={handleSave}>
-              Salvar ajustes
+            <Button type="button" onClick={handleSave} disabled={saving}>
+              {saving ? 'Salvando...' : 'Salvar ajustes'}
             </Button>
           </div>
         </CardContent>
@@ -243,9 +269,9 @@ export function SettingsPanel({
           <CardTitle>Backup e dados</CardTitle>
           <CardDescription>
             {entryCount === 0
-              ? 'Nenhum lançamento salvo neste navegador.'
-              : `${entryCount} ${entryCount === 1 ? 'lançamento salvo' : 'lançamentos salvos'} neste navegador.`}{' '}
-            Os dados não saem do seu dispositivo.
+              ? 'Nenhum lançamento salvo na planilha.'
+              : `${entryCount} ${entryCount === 1 ? 'lançamento salvo' : 'lançamentos salvos'} na planilha.`}{' '}
+            Exporte um JSON como cópia extra.
           </CardDescription>
         </CardHeader>
 
@@ -301,9 +327,13 @@ export function SettingsPanel({
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                   <AlertDialogAction
                     className="bg-destructive text-white hover:bg-destructive/90"
-                    onClick={() => {
-                      onReset()
-                      toast.success('Dados apagados.')
+                    onClick={async () => {
+                      try {
+                        await onReset()
+                        toast.success('Dados apagados.')
+                      } catch (error) {
+                        toast.error(errorMessage(error))
+                      }
                     }}
                   >
                     Apagar tudo
@@ -312,6 +342,39 @@ export function SettingsPanel({
               </AlertDialogContent>
             </AlertDialog>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Sincronização</CardTitle>
+          <CardDescription>
+            Os lançamentos são gravados em uma planilha do Google, não neste
+            navegador.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-3">
+          <p className="break-all rounded-lg border bg-muted/40 px-3 py-2 font-mono text-xs text-muted-foreground">
+            {config.url}
+          </p>
+
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={onRefresh}>
+              Recarregar dados
+            </Button>
+            {allowDisconnect && (
+              <Button type="button" variant="outline" onClick={onDisconnect}>
+                Desconectar
+              </Button>
+            )}
+          </div>
+
+          {!allowDisconnect && (
+            <p className="text-xs text-muted-foreground">
+              Conexão definida pelas variáveis de ambiente.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -333,10 +396,16 @@ export function SettingsPanel({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (pendingImport) onImport(pendingImport)
+              onClick={async () => {
+                if (pendingImport) {
+                  try {
+                    await onImport(pendingImport)
+                    toast.success('Backup importado.')
+                  } catch (error) {
+                    toast.error(errorMessage(error))
+                  }
+                }
                 setPendingImport(null)
-                toast.success('Backup importado.')
               }}
             >
               Substituir dados

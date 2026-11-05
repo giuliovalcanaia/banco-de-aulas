@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Trash2Icon, XIcon } from 'lucide-react'
+import { PencilIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -21,18 +21,23 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { DateField } from '@/components/DateField'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
+import { TimeSelect } from '@/components/TimeSelect'
+import type { EntryInput } from '@/hooks/useStore'
 import type { DayEntry, Settings, TimeRange } from '@/lib/types'
 import { formatDateLong, isValidISODate, todayISO } from '@/lib/date'
+import { errorMessage } from '@/lib/errors'
+import { AFTERNOON_BREAK, MORNING_BREAK } from '@/lib/schedule'
 import {
   dayMinutes,
   defaultDayMinutes,
   formatDuration,
   formatSignedAulas,
   isValidTime,
+  rangeMinutes,
   timeToMinutes,
 } from '@/lib/time'
 import { cn } from '@/lib/utils'
@@ -41,8 +46,11 @@ type DayFormProps = {
   settings: Settings
   entriesByDate: Map<string, DayEntry>
   initialDate: string
-  onSave: (input: Omit<DayEntry, 'id' | 'updatedAt'>) => void
-  onDelete: (id: string) => void
+  editingEntryId?: string | null
+  onFinishEdit?: (date?: string) => void
+  onCancelEdit?: (date?: string) => void
+  onSave: (input: EntryInput) => Promise<void>
+  onDelete: (id: string) => Promise<void>
 }
 
 type PeriodEditorProps = {
@@ -72,20 +80,16 @@ function PeriodEditor({ label, value, fallback, onChange }: PeriodEditorProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2.5">
       <span className="w-14 text-sm font-medium">{label}</span>
-      <Input
-        type="time"
+      <TimeSelect
         value={value.start}
-        onChange={(event) => onChange({ ...value, start: event.target.value })}
-        className="w-[7.5rem]"
-        aria-label={`${label}: início`}
+        onChange={(start) => onChange({ ...value, start })}
+        ariaLabel={`${label}: início`}
       />
       <span className="text-sm text-muted-foreground">até</span>
-      <Input
-        type="time"
+      <TimeSelect
         value={value.end}
-        onChange={(event) => onChange({ ...value, end: event.target.value })}
-        className="w-[7.5rem]"
-        aria-label={`${label}: fim`}
+        onChange={(end) => onChange({ ...value, end })}
+        ariaLabel={`${label}: fim`}
       />
       <Button
         type="button"
@@ -101,7 +105,11 @@ function PeriodEditor({ label, value, fallback, onChange }: PeriodEditorProps) {
   )
 }
 
-function validatePeriod(label: string, range: TimeRange | null): string | null {
+function validatePeriod(
+  label: string,
+  range: TimeRange | null,
+  breakWindow: TimeRange,
+): string | null {
   if (!range) return null
   if (!isValidTime(range.start) || !isValidTime(range.end)) {
     return `Informe horários válidos no período da ${label}.`
@@ -111,6 +119,9 @@ function validatePeriod(label: string, range: TimeRange | null): string | null {
   if (start === null || end === null || end <= start) {
     return `No período da ${label}, o fim deve ser depois do início.`
   }
+  if (rangeMinutes(range, breakWindow) === 0) {
+    return `No período da ${label}, escolha um horário fora do lanche.`
+  }
   return null
 }
 
@@ -118,6 +129,9 @@ export function DayForm({
   settings,
   entriesByDate,
   initialDate,
+  editingEntryId,
+  onFinishEdit,
+  onCancelEdit,
   onSave,
   onDelete,
 }: DayFormProps) {
@@ -127,14 +141,37 @@ export function DayForm({
     settings.defaultAfternoon,
   )
   const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  const existing = entriesByDate.get(date)
+  const editingEntry = editingEntryId
+    ? ([...entriesByDate.values()].find(
+        (entry) => entry.id === editingEntryId,
+      ) ?? null)
+    : null
+  const existing = editingEntry ?? entriesByDate.get(date)
 
   useEffect(() => {
+    if (editingEntryId) return
     setDate(initialDate)
-  }, [initialDate])
+  }, [initialDate, editingEntryId])
 
   useEffect(() => {
+    if (!editingEntryId) return
+
+    const entry = [...entriesByDate.values()].find(
+      (item) => item.id === editingEntryId,
+    )
+    if (!entry) return
+
+    setDate(entry.date)
+    setMorning(entry.morning)
+    setAfternoon(entry.afternoon)
+    setNote(entry.note)
+  }, [editingEntryId, entriesByDate])
+
+  useEffect(() => {
+    if (editingEntryId) return
+
     const entry = entriesByDate.get(date)
     if (entry) {
       setMorning(entry.morning)
@@ -145,7 +182,13 @@ export function DayForm({
       setAfternoon(settings.defaultAfternoon)
       setNote('')
     }
-  }, [date, entriesByDate, settings.defaultMorning, settings.defaultAfternoon])
+  }, [
+    date,
+    entriesByDate,
+    settings.defaultMorning,
+    settings.defaultAfternoon,
+    editingEntryId,
+  ])
 
   const minutes = dayMinutes({ morning, afternoon })
   const delta = minutes - defaultDayMinutes(settings)
@@ -174,7 +217,7 @@ export function DayForm({
     setAfternoon(null)
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     if (!isValidISODate(date)) {
@@ -183,14 +226,37 @@ export function DayForm({
     }
 
     const error =
-      validatePeriod('manhã', morning) ?? validatePeriod('tarde', afternoon)
+      validatePeriod('manhã', morning, MORNING_BREAK) ??
+      validatePeriod('tarde', afternoon, AFTERNOON_BREAK)
     if (error) {
       toast.error(error)
       return
     }
 
-    onSave({ date, morning, afternoon, note: note.trim() })
-    toast.success(existing ? 'Dia atualizado.' : 'Dia salvo.')
+    if (editingEntryId && editingEntry && date !== editingEntry.date) {
+      const conflict = entriesByDate.get(date)
+      if (conflict && conflict.id !== editingEntryId) {
+        toast.error(`Já existe um lançamento em ${formatDateLong(date)}.`)
+        return
+      }
+    }
+
+    setSaving(true)
+    try {
+      await onSave({
+        id: editingEntryId ?? undefined,
+        date,
+        morning,
+        afternoon,
+        note: note.trim(),
+      })
+      toast.success(existing ? 'Dia atualizado.' : 'Dia salvo.')
+      onFinishEdit?.(date)
+    } catch (saveError) {
+      toast.error(errorMessage(saveError))
+    } finally {
+      setSaving(false)
+    }
   }
 
   const deltaTone =
@@ -215,18 +281,16 @@ export function DayForm({
           <div className="flex flex-wrap items-end gap-2">
             <div className="space-y-1.5">
               <Label htmlFor="day-date">Dia</Label>
-              <Input
-                id="day-date"
-                type="date"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-                className="w-44"
-              />
+              <DateField id="day-date" value={date} onChange={setDate} />
             </div>
             <Button
               type="button"
               variant="outline"
-              onClick={() => setDate(todayISO())}
+              onClick={() => {
+                const today = todayISO()
+                onCancelEdit?.(today)
+                setDate(today)
+              }}
             >
               Hoje
             </Button>
@@ -234,6 +298,30 @@ export function DayForm({
               {formatDateLong(date)}
             </span>
           </div>
+
+          {editingEntryId && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+              <PencilIcon className="size-4 text-primary" />
+              <span>
+                Editando o lançamento de{' '}
+                <strong className="font-medium">
+                  {formatDateLong(editingEntry?.date ?? date)}
+                </strong>
+                {editingEntry && date !== editingEntry.date && (
+                  <> — salvar vai mover o registro para esta data.</>
+                )}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="ml-auto"
+                onClick={() => onCancelEdit?.(date)}
+              >
+                Cancelar edição
+              </Button>
+            </div>
+          )}
 
           <div className="space-y-2">
             <PeriodEditor
@@ -311,7 +399,15 @@ export function DayForm({
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
                       <AlertDialogAction
                         className="bg-destructive text-white hover:bg-destructive/90"
-                        onClick={() => onDelete(existing.id)}
+                        onClick={async () => {
+                          try {
+                            await onDelete(existing.id)
+                            toast.success('Lançamento removido.')
+                            onFinishEdit?.(date)
+                          } catch (deleteError) {
+                            toast.error(errorMessage(deleteError))
+                          }
+                        }}
                       >
                         Remover
                       </AlertDialogAction>
@@ -320,8 +416,12 @@ export function DayForm({
                 </AlertDialog>
               )}
 
-              <Button type="submit">
-                {existing ? 'Atualizar dia' : 'Salvar dia'}
+              <Button type="submit" disabled={saving}>
+                {saving
+                  ? 'Salvando...'
+                  : existing
+                    ? 'Atualizar dia'
+                    : 'Salvar dia'}
               </Button>
             </div>
           </div>
